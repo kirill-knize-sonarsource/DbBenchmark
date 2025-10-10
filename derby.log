@@ -1,0 +1,13 @@
+----------------------------------------------------------------
+Fri Oct 10 11:34:39 CEST 2025:
+Booting Derby version The Apache Software Foundation - Apache Derby - 10.17.1.0 - (1913217): instance a816c00e-0199-cd78-f2ec-00003ecd7008 
+on database directory /private/var/folders/81/nymbqqc15b75v0vbgn8s9z4m0000gq/T/derby-issues15411680080082437045 with class loader jdk.internal.loader.ClassLoaders$AppClassLoader@76ed5528 
+Loaded from file:/Users/kirill.knize/.m2/repository/org/apache/derby/derby/10.17.1.0/derby-10.17.1.0.jar
+java.vendor=Homebrew
+java.runtime.version=21.0.6
+user.dir=/Users/kirill.knize/IdeaProjects/DatabaseBenchmark
+os.name=Mac OS X
+os.arch=aarch64
+os.version=15.7.1
+derby.system.home=null
+Database Class Loader started - derby.database.classpath=''
