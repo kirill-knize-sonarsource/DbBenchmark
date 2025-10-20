@@ -13,48 +13,54 @@ import java.util.Base64;
 import java.util.List;
 import java.util.StringJoiner;
 
-public class H2IssueRepository implements IssueRepository {
+public class SqliteIssueRepository implements IssueRepository {
   private Connection conn;
   private String dbPath;
   private boolean autoCreatedPath = true;
 
-  public H2IssueRepository() {
+  public SqliteIssueRepository() {
   }
 
-  public H2IssueRepository(String dbPath) {
+  public SqliteIssueRepository(String dbPath) {
     this.dbPath = dbPath;
     this.autoCreatedPath = false;
   }
 
   @Override
   public String name() {
-    return "H2";
+    return "SQLite";
   }
 
   @Override
   public void init() throws Exception {
-    // Use file-based H2 to ensure on-disk persistence
     if (dbPath == null) {
-      File tmp = File.createTempFile("h2-issues", ".db");
+      File tmp = File.createTempFile("sqlite-issues", ".db");
       String path = tmp.getAbsolutePath();
-      if (tmp.exists()) tmp.delete(); // let H2 create its own files (e.g., .mv.db)
+      if (tmp.exists()) tmp.delete();
       dbPath = path;
       autoCreatedPath = true;
     }
-    String url = "jdbc:h2:file:" + dbPath;
+    String url = "jdbc:sqlite:" + dbPath;
+    // Ensure the xerial sqlite-jdbc driver is explicitly loaded so benchmarks definitely use it
+    try {
+      Class.forName("org.sqlite.JDBC");
+    } catch (ClassNotFoundException e) {
+      throw new IllegalStateException("sqlite-jdbc driver not found on classpath", e);
+    }
     conn = DriverManager.getConnection(url);
     try (Statement st = conn.createStatement()) {
+      st.execute("PRAGMA journal_mode=WAL");
       st.execute("CREATE TABLE IF NOT EXISTS issues (" +
-        "id VARCHAR(64) PRIMARY KEY, " +
-        "ruleKey VARCHAR(64), " +
-        "severity VARCHAR(16), " +
-        "message VARCHAR(1024), " +
-        "filePath VARCHAR(512), " +
-        "line INT, " +
-        "creationDate BIGINT, " +
-        "assignee VARCHAR(128), " +
-        "tags VARCHAR(512), " +
-        "details CLOB)"
+        "id TEXT PRIMARY KEY, " +
+        "ruleKey TEXT, " +
+        "severity TEXT, " +
+        "message TEXT, " +
+        "filePath TEXT, " +
+        "line INTEGER, " +
+        "creationDate INTEGER, " +
+        "assignee TEXT, " +
+        "tags TEXT, " +
+        "details TEXT)"
       );
       st.execute("CREATE INDEX IF NOT EXISTS idx_rule ON issues(ruleKey)");
     }
@@ -78,9 +84,7 @@ public class H2IssueRepository implements IssueRepository {
         ps.setString(9, String.join(",", is.getTags()));
         ps.setString(10, encodeDetails(is));
         ps.addBatch();
-        if (++i % 1000 == 0) {
-          ps.executeBatch();
-        }
+        if (++i % 1000 == 0) ps.executeBatch();
       }
       ps.executeBatch();
     }
@@ -135,7 +139,6 @@ public class H2IssueRepository implements IssueRepository {
       for (String t : tags.split(",")) tagList.add(t);
     }
     is.setTags(tagList);
-    // decode details
     String details = rs.getString("details");
     if (details != null && !details.isEmpty()) {
       decodeDetails(details, is);
@@ -257,11 +260,15 @@ public class H2IssueRepository implements IssueRepository {
   }
 
   private String nv(Integer i) {
-    return i == null ? "" : String.valueOf(i);
+    return i == null ? "" : i.toString();
   }
 
   private Integer parseInt(String s) {
-    return (s == null || s.isEmpty()) ? null : Integer.parseInt(s);
+    try {
+      return s == null || s.isEmpty() ? null : Integer.parseInt(s);
+    } catch (Exception e) {
+      return null;
+    }
   }
 
   @Override
@@ -269,6 +276,12 @@ public class H2IssueRepository implements IssueRepository {
     try {
       if (conn != null) conn.close();
     } catch (Exception ignored) {
+    }
+    if (dbPath != null && autoCreatedPath) {
+      try {
+        new File(dbPath).delete();
+      } catch (Exception ignored) {
+      }
     }
   }
 }

@@ -14,6 +14,6 @@ public class BenchmarkConfig {
     }
 
     public static BenchmarkConfig defaultConfig() {
-        return new BenchmarkConfig(100_000, 5_000, 0, "java:S1234");
+        return new BenchmarkConfig(1_000_000, 5_000, 10, "java:S1234");
     }
 }

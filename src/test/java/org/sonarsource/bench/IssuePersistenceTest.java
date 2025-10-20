@@ -55,6 +55,12 @@ class IssuePersistenceTest {
         runStoreFetchAndAssert(repoUnderTest);
     }
 
+    @Test
+    void sqlite_storeAndFetchById_allFieldsMatch() throws Exception {
+        repoUnderTest = new SqliteIssueRepository();
+        runStoreFetchAndAssert(repoUnderTest);
+    }
+
     private static void runStoreFetchAndAssert(IssueRepository repo) throws Exception {
         String[] ruleKeys = {"java:S100", "java:S101"};
         DataGenerator gen = new DataGenerator(123L, ruleKeys);

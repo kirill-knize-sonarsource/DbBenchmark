@@ -9,11 +9,11 @@ import org.sonarsource.bench.model.IssueFlow;
 import org.sonarsource.bench.model.IssueLocation;
 import org.sonarsource.bench.model.QuickFix;
 
+import org.dizitart.no2.mvstore.MVStoreModule;
+
 import java.io.File;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Arrays;
 
 public class NitriteIssueRepository implements IssueRepository {
     private Nitrite db;
@@ -31,66 +31,13 @@ public class NitriteIssueRepository implements IssueRepository {
             if (tmp.exists()) tmp.delete();
             filePath = path;
 
-            // Try Nitrite v4 module-based initialization first (MVStoreModule + optional JacksonMapperModule)
-            Object builder = Nitrite.builder();
-            try {
-                Class<?> mvModuleClass = Class.forName("org.dizitart.no2.mvstore.MVStoreModule");
-                Method withConfig = mvModuleClass.getMethod("withConfig");
-                Object cfgBuilder = withConfig.invoke(null);
-                // cfg builder has filePath(String) and compress(boolean)
-                Method filePathM = cfgBuilder.getClass().getMethod("filePath", String.class);
-                cfgBuilder = filePathM.invoke(cfgBuilder, filePath);
-                try {
-                    Method compressM = cfgBuilder.getClass().getMethod("compress", boolean.class);
-                    cfgBuilder = compressM.invoke(cfgBuilder, true);
-                } catch (NoSuchMethodException ignored) {
-                    // compress may not exist in some builds; ignore
-                }
-                Method buildM = cfgBuilder.getClass().getMethod("build");
-                Object mvModule = buildM.invoke(cfgBuilder);
-                Method loadModule = builder.getClass().getMethod("loadModule", Class.forName("org.dizitart.no2.common.module.NitriteModule"));
-                loadModule.invoke(builder, mvModule);
-
-                // Try to load Jackson mapper module if available
-                try {
-                    Class<?> jacksonModuleClass = Class.forName("org.dizitart.no2.jackson.JacksonMapperModule");
-                    Object jacksonModule = jacksonModuleClass.getConstructor().newInstance();
-                    loadModule.invoke(builder, jacksonModule);
-                } catch (Throwable ignored) {
-                    // Jackson module not available; proceed without it
-                }
-
-                // Open with credentials as per v4 samples
-                Method openOrCreate = builder.getClass().getMethod("openOrCreate", String.class, String.class);
-                db = (Nitrite) openOrCreate.invoke(builder, "user", "password");
-            } catch (Throwable moduleInitFailed) {
-                // Fallback paths using reflection to keep compatibility across Nitrite versions
-                try {
-                    Object b2 = Nitrite.builder();
-                    try {
-                        Method filePathM2 = b2.getClass().getMethod("filePath", String.class);
-                        Object b2ret = filePathM2.invoke(b2, filePath);
-                        try {
-                            Method open = b2ret.getClass().getMethod("openOrCreate");
-                            db = (Nitrite) open.invoke(b2ret);
-                        } catch (NoSuchMethodException e) {
-                            Method openCred = b2ret.getClass().getMethod("openOrCreate", String.class, String.class);
-                            db = (Nitrite) openCred.invoke(b2ret, "", "");
-                        }
-                    } catch (NoSuchMethodException noFilePath) {
-                        // As a last resort, open default (may be in-memory)
-                        try {
-                            Method open = b2.getClass().getMethod("openOrCreate");
-                            db = (Nitrite) open.invoke(b2);
-                        } catch (NoSuchMethodException e) {
-                            Method openCred = b2.getClass().getMethod("openOrCreate", String.class, String.class);
-                            db = (Nitrite) openCred.invoke(b2, "", "");
-                        }
-                    }
-                } catch (Throwable t2) {
-                    throw t2;
-                }
-            }
+            // Direct Nitrite v4 initialization without reflection
+            db = Nitrite.builder()
+                    .loadModule(MVStoreModule.withConfig()
+                            .filePath(filePath)
+                            .compress(true)
+                            .build())
+                    .openOrCreate("user", "password");
 
             coll = db.getCollection("issues");
         } catch (Exception e) {

@@ -24,6 +24,7 @@ public class BenchmarkRunner {
                 new H2IssueRepository(),
                 new HsqldbIssueRepository(),
                 new DerbyIssueRepository(),
+                new SqliteIssueRepository(),
                 //new MapDbIssueRepository(),
                 new NitriteIssueRepository()
         );
